@@ -33,3 +33,14 @@ Edit `settings.json`
 ***
 ### Disclaimer
 This is a self-bot which is against Discord ToS. Use it at your own risk.
+
+## How to build executable
+
+### Windows
+```commandline
+pip install -r requirements.txt
+pyinstaller main.py --onefile -i 'd.ico'
+```
+
+### Linux
+WIP

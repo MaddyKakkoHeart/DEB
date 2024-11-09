@@ -1,12 +1,8 @@
 import discord
-import logging
-import asyncio, json, time, traceback
+import json, time, traceback
 import sys, os
-from os import system
-from colored import fg, bg, attr
-import re
+from colored import fg, attr
 import requests
-import urllib.request
 import shutil
 import hashlib
 
@@ -65,14 +61,16 @@ color_p = fg('#FFCC00')
 color_err = fg('#FF0000')
 
 res = attr('reset')
-
-print(color
-+          "╔╦╗┬┌─┐┌─┐┌─┐┬─┐┌┬┐  ╔═╗┌┬┐┌─┐ ┬┬  ╔╗ ┌─┐┌─┐┬┌─┬ ┬┌─┐\n"
-+ color2 + " ║║│└─┐│  │ │├┬┘ ││  ║╣ ││││ │ ││  ╠╩╗├─┤│  ├┴┐│ │├─┘\n"
-+ color3 + "═╩╝┴└─┘└─┘└─┘┴└──┴┘  ╚═╝┴ ┴└─┘└┘┴  ╚═╝┴ ┴└─┘┴ ┴└─┘┴  \n"
-+ res)
+try:
+    print(color
+    +          "╔╦╗┬┌─┐┌─┐┌─┐┬─┐┌┬┐  ╔═╗┌┬┐┌─┐ ┬┬  ╔╗ ┌─┐┌─┐┬┌─┬ ┬┌─┐\n"
+    + color2 + " ║║│└─┐│  │ │├┬┘ ││  ║╣ ││││ │ ││  ╠╩╗├─┤│  ├┴┐│ │├─┘\n"
+    + color3 + "═╩╝┴└─┘└─┘└─┘┴└──┴┘  ╚═╝┴ ┴└─┘└┘┴  ╚═╝┴ ┴└─┘┴ ┴└─┘┴  \n"
+    + res)
+except UnicodeEncodeError:
+    print('Discord Emoji Backup')
 version_num = 'v1.0.5'
-print(f'\33]0;DEB ' + version_num + ' - Developed by: Notorious\a', end='', flush=True)
+print(f'\33]0;DEB ' + version_num + ' - Developed by: Notorious (upgraded by Maddy)\a', end='', flush=True)
 r = requests.get('https://raw.githubusercontent.com/noto-rious/DEB/main/version.txt').text
 if r != version_num:
     print(color_err + 'Looks like you may not be running the most current version. Check https://noto.cf/deb for an update!' + res)
@@ -137,12 +135,20 @@ def create_dir(dir):
                 shutil.rmtree(dir)
                 os.makedirs(dir)
 
+def sanitize_filename(filename):
+    reserved_chars = frozenset(
+        {chr(i) for i in range(32)} |
+        {'"', '*', ':', '<', '>', '?', '|', '/', '\\'}
+    )
+
+    return "".join(x if len(reserved_chars.intersection(x)) == 0 else "_" for x in filename)
+
 def save_emoji(url,path,guild,emoji):
     global i
     global N
     global EmojisDownloaded
     try:
-        r = requests.get(url,emoji)
+        r = requests.get(url)
         #print(path)
         if r != None:
             imgSHA1 = hashlib.sha1(r.content).hexdigest()
@@ -227,19 +233,20 @@ try:
                 return
             print(res + color_t + time.strftime('%I:%M %p', time.localtime()).rstrip() + res +' -> Discord Emoji Backup -> ' + color + command_prefix + 'b' + res + ' accepted in ' + color + str(msg.guild.name) + res + '. Please wait...' + res)
             if os.name == 'nt':
-                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(msg.guild.name)) + '\\'
+                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(msg.guild.name)) + '\\' + 'emoji' + '\\'
                 create_dir(emoji_path)
             else:
-                emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(str(msg.guild.name)) + '/'
+                emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(str(msg.guild.name)) + '/' + 'emoji' + '/'
                 create_dir(emoji_path)
 
             guild = client.get_guild(msg.guild.id)
             GEmojiList = guild.emojis
+            GStickersList = guild.stickers
 
             isBusy = True
             i = 0
             tmp_guild = ''
-            N = len(GEmojiList)
+            N = len(GEmojiList) + len(GStickersList)
             for emoji in GEmojiList:
                 emojiraw = str(emoji)
 
@@ -254,6 +261,36 @@ try:
                     progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Duplicates: ' + color + f'{Duplicates:,}' + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
                 else:
                     progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+
+            if os.name == 'nt':
+                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(msg.guild.name)) + '\\' + 'sticker' + '\\'
+                create_dir(emoji_path)
+            else:
+                emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(str(msg.guild.name)) + '/' + 'sticker' + '/'
+                create_dir(emoji_path)
+
+            for sticker in GStickersList:
+                name = sanitize_filename(sticker["name"])
+                if sticker.format == 'png' or sticker.format == 'apng':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker["id"]) + '.png?size=320',
+                               emoji_path + name + '.png', guild.name, name)
+                elif sticker.format == 'lottie':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker["id"]) + '.json',
+                               emoji_path + name + '.json', guild.name, name)
+                elif sticker.format == 'gif':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker["id"]) + '.gif?size=320',
+                               emoji_path + name + '.gif', guild.name, name)
+                else:
+                    print('Unknown sticker format detected: {}'.format(sticker.format))
+
+                i += 1
+                tmp_guild = str(guild)
+                tmp_guild = (tmp_guild[:14] + '...') if len(tmp_guild) > 17 else tmp_guild
+                if no_dupes != False:
+                    progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Duplicates: ' + color + f'{Duplicates:,}' + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+                else:
+                    progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+
             time_took = time.time() - start_time
             if no_dupes != False:
                 progress(i, N, res +  'Finished! Time Took: ' + color + calc_time(start_time) + res + ' -> Duplicates Ignored: ' + color + f'{Duplicates:,}' + res + ' -> Emojis Downloaded: ' + color + f'{EmojisDownloaded:,}' + res)
@@ -277,21 +314,57 @@ try:
                 print(res + color_t + time.strftime('%I:%M %p', time.localtime()).rstrip() + res +' -> Discord Emoji Backup -> ' + color +command_prefix +  'ba' + res + ' accepted in ' + color + str(msg.guild.name) + res + '. Please wait...' + res)
             for guild in client.guilds:
                 if os.name == 'nt':
-                    emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(guild.name) + '\\'
+                    emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(guild.name) + '\\' + 'sticker' + '\\'
                     create_dir(emoji_path)
                 else:
-                    emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(guild.name) + '/'
+                    emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(guild.name) + '/' + 'sticker' + '/'
                     create_dir(emoji_path)
 
             tmp_guild = ''
             EmojiList = client.emojis
+            StickerList = client.stickers
             i = 0
-            N = len(EmojiList)
+            N = len(EmojiList) + len(StickerList)
             isBusy = True
+
+            for sticker in StickerList:
+                guild = sticker.guild
+                stickerraw = str(sticker)
+                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(sticker.guild.name)) + '\\' + 'sticker' + '\\'
+
+                name = sanitize_filename(sticker.name)
+                if sticker.format == 'png' or sticker.format == 'apng':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker.id) + '.png?size=320',
+                               emoji_path + name + '.png', guild.name, name)
+                elif sticker.format == 'lottie':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker.id) + '.json',
+                               emoji_path + name + '.json', guild.name, name)
+                elif sticker.format == 'gif':
+                    save_emoji('https://media.discordapp.net/stickers/' + str(sticker.id) + '.gif?size=320',
+                               emoji_path + name + '.gif', guild.name, name)
+                else:
+                    print('Unknown sticker format detected: {}'.format(sticker.format))
+
+                i += 1
+                tmp_guild = str(guild)
+                tmp_guild = (tmp_guild[:14] + '...') if len(tmp_guild) > 17 else tmp_guild
+                if no_dupes != False:
+                    progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Duplicates: ' + color + f'{Duplicates:,}' + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+                else:
+                    progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+
+            for guild in client.guilds:
+                if os.name == 'nt':
+                    emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(guild.name) + '\\' + 'emoji' + '\\'
+                    create_dir(emoji_path)
+                else:
+                    emoji_path = application_path + '/' + clean_fs_str(str(client.user)) + '/' + clean_fs_str(guild.name) + '/' + 'emoji' + '/'
+                    create_dir(emoji_path)
+
             for emoji in EmojiList:
                 guild = emoji.guild
                 emojiraw = str(emoji)
-                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(emoji.guild.name)) + '\\'
+                emoji_path = application_path + '\\' + clean_fs_str(str(client.user)) + '\\' + clean_fs_str(str(emoji.guild.name)) + '\\' + 'emoji' + '\\'
 
                 if emoji.animated == True:
                     save_emoji('https://cdn.discordapp.com/emojis/' + str(emoji.id) + '.gif?v=1', emoji_path + emoji.name + '.gif',guild.name,emoji.name)
@@ -304,6 +377,9 @@ try:
                     progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Duplicates: ' + color + f'{Duplicates:,}' + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
                 else:
                     progress(i, N, res + 'Elapsed time: ' + color + calc_time(start_time) + res + ' -> Downloaded: ' + color + f'{EmojisDownloaded:,}' + res + ' from ' + color +  str(tmp_guild) + res)
+
+
+
             time_took = time.time() - start_time
             if no_dupes != False:
                 progress(i, N, res +  'Finished! Time Took: ' + color + calc_time(start_time) + res + ' -> Duplicates Ignored: ' + color + f'{Duplicates:,}' + res + ' -> Emojis Downloaded: ' + color + f'{EmojisDownloaded:,}' + res)
@@ -320,9 +396,9 @@ except KeyboardInterrupt:
 except:
     print('Are you sure you typed the correct user authorization token?')
     sys.tracebacklimit = 0
+    file = open('Error_Log.txt', 'w')
+    file.write(traceback.format_exc())
+    file.close()
     time.sleep(30)
     sys.exit()
-    #file = open('Error_Log.txt', 'w')
-    #file.write(traceback.format_exc())
-    #file.close()
     #exit(0)     
